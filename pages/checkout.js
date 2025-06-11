@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import Head from 'next/head';
 
 export async function getServerSideProps() {
   return { props: {} }; // Prevent static generation
@@ -18,7 +19,23 @@ export default function Checkout() {
     customerEmail: '',
     customerPhone: '',
   });
+  const [isSdkLoaded, setIsInitialized] = useState(false);
 
+  // Load Cashfree SDK
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://sdk.cashfree.com/js/v3/payments.js';
+    script.async = () => {
+      setIsInitialized(true);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // Initialize form data and check user
   useEffect(() => {
     if (!loading && !user) {
       toast.error('Please sign in to proceed with checkout');
@@ -37,14 +54,30 @@ export default function Checkout() {
   };
 
   const handlePayment = async () => {
-    if (!user) return;
+    if (!user) {
+      toast.error('Please sign in to proceed');
+      return;
+    }
+    if (!isInitialized) {
+      toast.error('Payment SDK not loaded. Please try again.');
+      return;
+    }
+    if (!formData.customerName || !formData.customerEmail || !formData.customerPhone) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    if (!courseName || !amount) {
+      toast.error('Invalid course or amount');
+      return;
+    }
+
     try {
       const response = await fetch('/api/createOrder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseName,
-          amount,
+          amount: parseFloat(amount),
           ...formData,
           userId: user.uid,
         }),
@@ -52,14 +85,18 @@ export default function Checkout() {
 
       const data = await response.json();
       if (data.success) {
-        const cashfree = new window.Cashfree(data.paymentSessionId);
-        cashfree.redirect();
+        if (window.Cashfree) {
+          const cashfree = new window.Cashfree(data.paymentSessionId);
+          cashfree.redirect();
+        } else {
+          toast.error('Cashfree SDK not available');
+        }
       } else {
-        toast.error(data.error);
+        toast.error(data.error || 'Failed to initiate payment');
       }
     } catch (error) {
       console.error('Payment initiation failed:', error);
-      toast.error('Payment initiation failed');
+      toast.error('Payment initiation failed. Please try again.');
     }
   };
 
@@ -73,13 +110,16 @@ export default function Checkout() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Head>
+        <title>Checkout - StudyHub</title>
+      </Head>
       <Navbar />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
           <h1 className="text-3xl font-bold mb-8">Checkout</h1>
           <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Course: {courseName}</h2>
-            <p className="text-lg mb-4">Amount: ₹{amount}</p>
+            <h2 className="text-xl font-semibold mb-4">Course: {courseName || 'Loading...'}</h2>
+            <p className="text-lg mb-4">Amount: ₹{amount || 'N/A'}</p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Name</label>
               <input
@@ -115,10 +155,14 @@ export default function Checkout() {
             </div>
             <button
               onClick={handlePayment}
-              className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              disabled={!user}
+              className={`w-full py-2 rounded-lg transition-colors ${
+                isInitialized && user
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              }`}
+              disabled={!isInitialized || !user}
             >
-              Pay Now
+              {isInitialized ? 'Pay Now' : 'Loading Payment SDK...'}
             </button>
           </div>
         </div>
