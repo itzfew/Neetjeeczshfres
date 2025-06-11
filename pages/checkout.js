@@ -25,7 +25,7 @@ export default function Checkout() {
   // Load Cashfree SDK
   useEffect(() => {
     const script = document.createElement('script');
-    script.src = 'https://sdk.cashfree.com/js/v3/payments.js';
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
     script.async = true;
     script.onload = () => {
       console.log('Cashfree SDK loaded successfully');
