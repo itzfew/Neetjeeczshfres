@@ -1,52 +1,57 @@
 import { useEffect, useState } from 'react';
+import { auth, database } from '../firebase';
+import { get, ref } from 'firebase/database';
 import ProductCard from '../components/ProductCard';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { get, ref } from 'firebase/database';
-import { realtimeDb } from '../firebase';
-
-export async function getServerSideProps() {
-  return { props: {} }; // Prevent static generation
-}
 
 export default function Home() {
   const [courses, setCourses] = useState([]);
+  const [purchasedCourses, setPurchasedCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchCourses = async () => {
-      try {
-        const filesRef = ref(realtimeDb, 'files');
-        const snapshot = await get(filesRef);
-        if (snapshot.exists()) {
-          const files = snapshot.val();
-          const courseMap = {};
-          Object.values(files).forEach((file) => {
-            if (!courseMap[file.folder]) {
-              courseMap[file.folder] = {
-                name: file.folder,
-                price: file.folder === 'Pw' ? 5 : file.folder === 'Xgnccgnf' ? 10 : 15,
-                pdfs: [],
-                description: file.description || 'Premium study materials', // Ensure description is set
-              };
-            }
-            courseMap[file.folder].pdfs.push({
-              name: file.name,
-              url: file.url,
-              pdfId: file.pdfId,
-            });
+      const coursesRef = ref(database, 'files');
+      const snapshot = await get(coursesRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const courseMap = {};
+        Object.values(data).forEach((file) => {
+          if (!courseMap[file.folder]) {
+            courseMap[file.folder] = {
+              name: file.folder,
+              price: file.folder === 'Pw' ? 5 : 10, // Example pricing
+              description: `Learn with our premium ${file.folder} course materials.`,
+              image: '/default-course.jpg',
+              files: [],
+            };
+          }
+          courseMap[file.folder].files.push({
+            name: file.name,
+            url: file.url,
+            pdfId: file.pdfId,
           });
-          setCourses(Object.values(courseMap));
+        });
+        setCourses(Object.values(courseMap));
+      }
+      setIsLoading(false);
+    };
+
+    const fetchPurchasedCourses = async () => {
+      if (auth.currentUser) {
+        const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          setPurchasedCourses(Object.keys(snapshot.val()));
         }
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error loading courses:', error);
-        setIsLoading(false);
       }
     };
+
     fetchCourses();
+    fetchPurchasedCourses();
   }, []);
 
   return (
@@ -67,14 +72,12 @@ export default function Home() {
             <div className="flex justify-center items-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
             </div>
-          ) : courses.length === 0 ? (
-            <p className="text-center text-gray-600">No courses available.</p>
           ) : (
             <>
               <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Courses</h2>
               <div className="product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {courses.map((course) => (
-                  <ProductCard key={course.name} course={course} />
+                  <ProductCard key={course.name} course={course} purchasedCourses={purchasedCourses} />
                 ))}
               </div>
             </>
