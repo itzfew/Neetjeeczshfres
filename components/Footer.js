@@ -1,8 +1,8 @@
 export default function Footer() {
   return (
-    <footer className="bg-gray-800 text-white py-6">
-      <div className="container mx-auto px-4 text-center">
-        <p>&copy; 2025 StudyHub. All rights reserved.</p>
+    <footer className="bg-gray-800 text-white p-4">
+      <div className="container mx-auto text-center">
+        <p>&copy; 2025 Course Platform. All rights reserved.</p>
       </div>
     </footer>
   );
