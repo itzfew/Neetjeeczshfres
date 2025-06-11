@@ -4,7 +4,12 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
-const AuthContext = createContext();
+const AuthContext = createContext({
+  user: null,
+  loading: true,
+  signInWithGoogle: async () => {},
+  logout: async () => {},
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -14,12 +19,16 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        await setDoc(doc(db, 'users', user.uid), {
-          name: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          lastLogin: new Date().toISOString(),
-        }, { merge: true });
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            name: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            lastLogin: new Date().toISOString(),
+          },
+          { merge: true }
+        );
       } else {
         setUser(null);
       }
@@ -47,4 +56,10 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    return { user: null, loading: true, signInWithGoogle: async () => {}, logout: async () => {} };
+  }
+  return context;
+};
