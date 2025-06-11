@@ -8,17 +8,21 @@ import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import { toast } from 'react-toastify';
 
+export async function getServerSideProps() {
+  return { props: {} }; // Prevent static generation
+}
+
 export default function CoursePage() {
   const router = useRouter();
   const { courseName } = router.query;
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [pdfs, setPdfs] = useState([]);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkPurchaseAndFetchPdfs = async () => {
-      if (!user || !courseName) return;
+      if (loading || !user || !courseName) return;
 
       const purchaseRef = doc(db, 'purchases', `${user.uid}_${courseName}`);
       const purchaseSnap = await getDoc(purchaseRef);
@@ -30,8 +34,8 @@ export default function CoursePage() {
         if (snapshot.exists()) {
           const files = snapshot.val();
           const coursePdfs = Object.values(files)
-            .filter(file => file.folder === courseName)
-            .map(file => ({
+            .filter((file) => file.folder === courseName)
+            .map((file) => ({
               name: file.name,
               url: file.url,
               pdfId: file.pdfId,
@@ -45,22 +49,26 @@ export default function CoursePage() {
       setIsLoading(false);
     };
     checkPurchaseAndFetchPdfs();
-  }, [user, courseName, router]);
+  }, [user, loading, courseName, router]);
 
   const viewPdf = (pdfId) => {
     router.push(`/view?pdfId=${pdfId}`);
   };
+
+  if (loading || isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          {isLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-            </div>
-          ) : hasPurchased ? (
+          {hasPurchased ? (
             <>
               <h1 className="text-3xl font-bold text-center mb-12">{courseName} Materials</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -76,7 +84,9 @@ export default function CoursePage() {
                 ))}
               </div>
             </>
-          ) : null}
+          ) : (
+            <p className="text-center text-gray-600">Checking purchase status...</p>
+          )}
         </div>
       </main>
       <Footer />
