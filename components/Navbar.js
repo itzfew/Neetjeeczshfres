@@ -1,32 +1,46 @@
+import { useEffect, useState } from 'react';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { useAuth } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 export default function Navbar() {
-  const { user, signInWithGoogle, logout } = useAuth();
+  const [user, setUser] = useState(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      toast.success('Signed out successfully');
+      router.push('/');
+    } catch (error) {
+      toast.error('Sign out failed: ' + error.message);
+    }
+  };
 
   return (
-    <nav className="bg-white shadow-md">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+    <nav className="bg-indigo-600 text-white p-4">
+      <div className="container mx-auto flex justify-between items-center">
         <Link href="/">
-          <a className="text-2xl font-bold text-indigo-600">StudyHub</a>
+          <a className="text-2xl font-bold">Course Platform</a>
         </Link>
-        <div className="flex items-center space-x-4">
-          <Link href="/">
-            <a className="text-gray-600 hover:text-indigo-600">Home</a>
-          </Link>
-          {user && (
-            <Link href="/my-courses">
-              <a className="text-gray-600 hover:text-indigo-600">My Courses</a>
-            </Link>
-          )}
+        <div className="space-x-4">
+          <Link href="/">Home</Link>
+          {user && <Link href="/my-courses">My Courses</Link>}
           {user ? (
-            <button onClick={logout} className="text-gray-600 hover:text-indigo-600">
-              Logout
+            <button onClick={handleSignOut} className="hover:underline">
+              Sign Out
             </button>
           ) : (
-            <button onClick={signInWithGoogle} className="text-gray-600 hover:text-indigo-600">
-              Sign In
-            </button>
+            <Link href="/login">Sign In</Link>
           )}
         </div>
       </div>
