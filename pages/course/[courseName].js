@@ -22,30 +22,37 @@ export default function CoursePage() {
     }
 
     const fetchCourse = async () => {
-      const coursesRef = ref(database, 'files');
-      const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
-      const [courseSnapshot, userSnapshot] = await Promise.all([get(coursesRef), get(userRef)]);
+      try {
+        const coursesRef = ref(database, 'files');
+        const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
+        const [courseSnapshot, userSnapshot] = await Promise.all([get(coursesRef), get(userRef)]);
 
-      if (courseSnapshot.exists()) {
-        const data = courseSnapshot.val();
-        const courseFiles = Object.values(data).filter((file) => file.folder === courseName);
-        if (courseFiles.length > 0) {
-          setCourse({
-            name: courseName,
-            price: courseName === 'Pw' ? 5 : 10,
-            files: courseFiles.map((file) => ({
-              name: file.name,
-              url: file.url,
-              pdfId: file.pdfId,
-            })),
-          });
+        if (courseSnapshot.exists()) {
+          const data = courseSnapshot.val();
+          const courseFiles = Object.values(data).filter((file) => file.folder === courseName);
+          if (courseFiles.length > 0) {
+            setCourse({
+              name: courseName,
+              price: courseName === 'Pw' ? 5 : 10,
+              files: courseFiles.map((file) => ({
+                name: file.name,
+                url: file.url,
+                pdfId: file.pdfId,
+              })),
+            });
+          }
+          setIsPurchased(userSnapshot.exists() && userSnapshot.val()[courseName]);
         }
-      setIsPurchased(userSnapshot.exists() && userSnapshot.val()[courseName]);
+      } catch (error) {
+        toast.error('Failed to fetch course: ' + error.message);
+      }
       setIsLoading(false);
     };
 
-    fetchCourse();
-  }, [courseName]);
+    if (courseName) {
+      fetchCourse();
+    }
+  }, [courseName, router]);
 
   if (isLoading) {
     return (
@@ -91,7 +98,8 @@ export default function CoursePage() {
             {course.files.map((file) => (
               <div key={file.pdfId} className="bg-white p-4 rounded-lg shadow">
                 <Link href={`/view?pdfId=${file.pdfId}`}>
-                  <a className="text-indigo-600 hover:text-indigo-800">{file.name}</a>
+                  <a className="text-indigo-6
+00 hover:text-indigo-800">{file.name}</a>
                 </Link>
               </div>
             ))}
