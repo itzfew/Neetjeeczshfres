@@ -1,19 +1,26 @@
 // pages/api/createOrder.js
 import axios from 'axios';
 import firebaseApp from '../../lib/firebase';
-import { getAuth } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK (only once)
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    }),
-  });
+  try {
+    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+      throw new Error('Missing Firebase Admin environment variables');
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+  } catch (error) {
+    console.error('Failed to initialize Firebase Admin SDK:', error.message);
+    // Optionally, you can return an error response here if initialization fails
+  }
 }
 
 export default async function handler(req, res) {
