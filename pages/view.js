@@ -1,10 +1,12 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { auth, database } from '../firebase';
-import { get, ref } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, onValue } from 'firebase/database';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { toast } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import PDFViewer from '../components/PDFViewer';
 
 export default function ViewPDF() {
   const router = useRouter();
@@ -12,33 +14,43 @@ export default function ViewPDF() {
   const [pdfUrl, setPdfUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchased, setIsPurchased] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      toast.error('Please sign in to view the PDF');
-      router.push('/login');
-      return;
-    }
-
-    const fetchPDF = async () => {
-      const filesRef = ref(database, 'files');
-      const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
-      const [fileSnapshot, userSnapshot] = await Promise.all([get(filesRef), get(userRef)]);
-
-      if (fileSnapshot.exists()) {
-        const files = fileSnapshot.val();
-        const file = Object.values(files).find((f) => f.pdfId === pdfId);
-        if (file) {
-          setPdfUrl(file.url);
-          setIsPurchased(userSnapshot.exists() && userSnapshot.val()[file.folder]);
-        }
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      if (user && pdfId) {
+        const db = getDatabase();
+        const filesRef = ref(db, 'files');
+        onValue(filesRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const file = Object.values(data).find((f) => f.pdfId === pdfId);
+            if (file) {
+              setPdfUrl(file.url);
+              const purchasesRef = ref(db, `purchases/${user.uid}/${file.folder}`);
+              onValue(purchasesRef, (snapshot) => {
+                setIsPurchased(!!snapshot.val());
+                setIsLoading(false);
+              });
+            } else {
+              setIsLoading(false);
+              toast.error('PDF not found.');
+            }
+          } else {
+            setIsLoading(false);
+            toast.error('PDF not found.');
+          }
+        });
+      } else {
+        setIsLoading(false);
+        toast.error('Please sign in to view this PDF.');
+        router.push('/');
       }
-      setIsLoading(false);
-    };
+    });
 
-    if (pdfId) {
-      fetchPDF();
-    }
+    return () => unsubscribe();
   }, [pdfId]);
 
   if (isLoading) {
@@ -49,14 +61,15 @@ export default function ViewPDF() {
     );
   }
 
-  if (!pdfUrl || !isPurchased) {
+  if (!isPurchased) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Navbar />
+        <Navbar user={user} />
+        <ToastContainer />
         <main className="flex-grow">
           <div className="container mx-auto px-4 py-12">
             <p className="text-center text-gray-600">
-              {pdfUrl ? 'Please purchase the course to access this PDF.' : 'PDF not found.'}
+              You have not purchased this course. Please purchase it to access the materials.
             </p>
           </div>
         </main>
@@ -67,10 +80,11 @@ export default function ViewPDF() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      <Navbar user={user} />
+      <ToastContainer />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <iframe src={pdfUrl} className="w-full h-[80vh]" title="PDF Viewer"></iframe>
+          <PDFViewer pdfUrl={pdfUrl} />
         </div>
       </main>
       <Footer />
