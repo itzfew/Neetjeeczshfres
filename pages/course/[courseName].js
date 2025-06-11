@@ -1,58 +1,54 @@
-import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { auth, database } from '../../firebase';
-import { get, ref } from 'firebase/database';
-import Link from 'next/link';
+import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { useRouter } from 'next/router';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import { toast } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Link from 'next/link';
 
 export default function CoursePage() {
   const router = useRouter();
-  const { courseName } = router.query;
+  const { courseId } = router.query;
   const [course, setCourse] = useState(null);
-  const [isPurchased, setIsPurchased] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPurchased, setIsPurchased] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      toast.error('Please sign in to view the course');
-      router.push('/login');
-      return;
-    }
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      if (user) {
+        const db = getDatabase();
+        const purchasesRef = ref(db, `purchases/${user.uid}/${courseId}`);
+        onValue(purchasesRef, (snapshot) => {
+          setIsPurchased(!!snapshot.val());
+        });
 
-    const fetchCourse = async () => {
-      try {
-        const coursesRef = ref(database, 'files');
-        const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
-        const [courseSnapshot, userSnapshot] = await Promise.all([get(coursesRef), get(userRef)]);
-
-        if (courseSnapshot.exists()) {
-          const data = courseSnapshot.val();
-          const courseFiles = Object.values(data).filter((file) => file.folder === courseName);
-          if (courseFiles.length > 0) {
+        const filesRef = ref(db, 'files');
+        onValue(filesRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const courseFiles = Object.values(data).filter((file) => file.folder === courseId);
             setCourse({
-              name: courseName,
-              price: courseName === 'Pw' ? 5 : 10,
-              files: courseFiles.map((file) => ({
-                name: file.name,
-                url: file.url,
-                pdfId: file.pdfId,
-              })),
+              id: courseId,
+              name: courseId,
+              files: courseFiles,
             });
           }
-          setIsPurchased(userSnapshot.exists() && userSnapshot.val()[courseName]);
-        }
-      } catch (error) {
-        toast.error('Failed to fetch course: ' + error.message);
+          setIsLoading(false);
+        });
+      } else {
+        setIsLoading(false);
+        toast.error('Please sign in to view this course.');
+        router.push('/');
       }
-      setIsLoading(false);
-    };
+    });
 
-    if (courseName) {
-      fetchCourse();
-    }
-  }, [courseName, router]);
+    return () => unsubscribe();
+  }, [courseId]);
 
   if (isLoading) {
     return (
@@ -62,25 +58,20 @@ export default function CoursePage() {
     );
   }
 
-  if (!course || !isPurchased) {
+  if (!isPurchased) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Navbar />
+        <Navbar user={user} />
+        <ToastContainer />
         <main className="flex-grow">
           <div className="container mx-auto px-4 py-12">
             <p className="text-center text-gray-600">
-              {course ? 'Please purchase this course to access the materials.' : 'Course not found.'}
+              You have not purchased this course. Please{' '}
+              <Link href="/" className="text-indigo-600 hover:text-indigo-800">
+                purchase it
+              </Link>{' '}
+              to access the materials.
             </p>
-            {course && (
-              <div className="text-center">
-                <button
-                  onClick={() => router.push(`/checkout?courseName=${courseName}&amount=${course.price}`)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  Purchase Now
-                </button>
-              </div>
-            )}
           </div>
         </main>
         <Footer />
@@ -90,18 +81,20 @@ export default function CoursePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      <Navbar user={user} />
+      <ToastContainer />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-3xl font-bold mb-8">{course.name}</h1>
-          <div className="space-y-4">
+          <h1 className="text-3xl font-bold text-center mb-12">{course.name}</h1>
+          <div className="grid grid-cols-1 gap-4">
             {course.files.map((file) => (
-              <div key={file.pdfId} className="bg-white p-4 rounded-lg shadow">
-                <Link href={`/view?pdfId=${file.pdfId}`}>
-                  <a className="text-indigo-6
-00 hover:text-indigo-800">{file.name}</a>
-                </Link>
-              </div>
+              <Link
+                key={file.pdfId}
+                href={`/view?pdfId=${file.pdfId}`}
+                className="p-4 bg-white rounded-lg shadow hover:bg-gray-100"
+              >
+                {file.name}
+              </Link>
             ))}
           </div>
         </div>
