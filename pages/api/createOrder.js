@@ -1,5 +1,6 @@
+// pages/api/createOrder.js
 import axios from 'axios';
-import { getAuth } from 'firebase/auth';
+import firebaseApp, { auth } from '../../lib/firebase'; // Import initialized Firebase app and auth
 import { getDatabase, ref, set } from 'firebase/database';
 
 export default async function handler(req, res) {
@@ -13,7 +14,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
-  const auth = getAuth();
   const user = auth.currentUser;
   if (!user) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     const paymentSessionId = response.data.payment_session_id;
 
     // Save purchase to Firebase
-    const db = getDatabase();
+    const db = getDatabase(firebaseApp);
     await set(ref(db, `purchases/${user.uid}/${courseId}`), {
       courseId,
       courseName,
