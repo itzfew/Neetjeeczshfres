@@ -1,7 +1,21 @@
 // pages/api/createOrder.js
 import axios from 'axios';
-import firebaseApp, { auth } from '../../lib/firebase'; // Import initialized Firebase app and auth
+import firebaseApp from '../../lib/firebase';
+import { getAuth } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
+import { getApps } from 'firebase/app';
+import admin from 'firebase-admin';
+
+// Initialize Firebase Admin SDK (only once)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    }),
+  });
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,19 +23,25 @@ export default async function handler(req, res) {
   }
 
   const { courseId, courseName, amount, customerName, customerEmail, customerPhone } = req.body;
+  const authHeader = req.headers.authorization;
 
   if (!courseId || !courseName || !amount || !customerName || !customerEmail || !customerPhone) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
-  const user = auth.currentUser;
-  if (!user) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: No token provided' });
   }
 
-  const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const idToken = authHeader.split('Bearer ')[1];
 
   try {
+    // Verify Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const userId = decodedToken.uid;
+
+    const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
     const response = await axios.post(
       'https://api.cashfree.com/pg/orders',
       {
@@ -29,7 +49,7 @@ export default async function handler(req, res) {
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: user.uid,
+          customer_id: userId,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
@@ -54,7 +74,7 @@ export default async function handler(req, res) {
 
     // Save purchase to Firebase
     const db = getDatabase(firebaseApp);
-    await set(ref(db, `purchases/${user.uid}/${courseId}`), {
+    await set(ref(db, `purchases/${userId}/${courseId}`), {
       courseId,
       courseName,
       amount,
@@ -68,10 +88,13 @@ export default async function handler(req, res) {
       courseId,
     });
   } catch (error) {
-    console.error('Cashfree order creation failed:', error?.response?.data || error.message);
+    console.error('Error in createOrder:', error.message);
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Token expired' });
+    }
     return res.status(500).json({
       success: false,
-      error: 'Failed to create Cashfree order',
+      error: 'Failed to create Cashfree order: ' + error.message,
     });
   }
 }
