@@ -1,7 +1,5 @@
 // pages/api/createOrder.js
 import axios from 'axios';
-import firebaseApp from '../../lib/firebase';
-import { getDatabase, ref, set } from 'firebase/database';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK (only once)
@@ -16,10 +14,11 @@ if (!admin.apps.length) {
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       }),
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL, // Required for Realtime Database
     });
   } catch (error) {
     console.error('Failed to initialize Firebase Admin SDK:', error.message);
-    // Optionally, you can return an error response here if initialization fails
+    return res.status(500).json({ success: false, error: 'Server configuration error' });
   }
 }
 
@@ -78,9 +77,9 @@ export default async function handler(req, res) {
 
     const paymentSessionId = response.data.payment_session_id;
 
-    // Save purchase to Firebase
-    const db = getDatabase(firebaseApp);
-    await set(ref(db, `purchases/${userId}/${courseId}`), {
+    // Save purchase to Firebase using Admin SDK
+    const dbRef = admin.database().ref(`purchases/${userId}/${courseId}`);
+    await dbRef.set({
       courseId,
       courseName,
       amount,
