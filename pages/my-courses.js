@@ -1,37 +1,39 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, database } from '../firebase';
+import { get, ref } from 'firebase/database';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import Link from 'next/link';
-
-export async function getServerSideProps() {
-  return { props: {} }; // Prevent static generation
-}
+import { toast } from 'react-toastify';
 
 export default function MyCourses() {
-  const { user, loading } = useAuth();
-  const [courses, setCourses] = useState([]);
+  const router = useRouter();
+  const [purchasedCourses, setPurchasedCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in to view your courses');
+      router.push('/login');
+      return;
+    }
+
     const fetchPurchasedCourses = async () => {
-      if (loading || !user) return;
-      const q = query(collection(db, 'purchases'), where('userId', '==', user.uid));
-      const querySnapshot = await getDocs(q);
-      const purchasedCourses = querySnapshot.docs.map((doc) => ({
-        name: doc.data().courseName,
-      }));
-      setCourses(purchasedCourses);
+      const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
+      const snapshot = await get(userRef);
+      if (snapshot.exists()) {
+        setPurchasedCourses(Object.keys(snapshot.val()));
+      }
       setIsLoading(false);
     };
-    fetchPurchasedCourses();
-  }, [user, loading]);
 
-  if (loading || isLoading) {
+    fetchPurchasedCourses();
+  }, []);
+
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
@@ -42,20 +44,19 @@ export default function MyCourses() {
       <Navbar />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-3xl font-bold text-center mb-12">My Courses</h1>
-          {courses.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {courses.map((course) => (
-                <Link key={course.name} href={`/course/${course.name}`}>
-                  <div className="p-4 bg-white rounded-lg shadow-md cursor-pointer hover:bg-gray-100">
-                    <h3 className="text-lg font-semibold">{course.name}</h3>
-                    <p className="text-indigo-600">View Course</p>
-                  </div>
-                </Link>
+          <h1 className="text-3xl font-bold mb-8">My Courses</h1>
+          {purchasedCourses.length === 0 ? (
+            <p className="text-center text-gray-600">You haven't purchased any courses yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {purchasedCourses.map((courseName) => (
+                <div key={courseName} className="bg-white p-4 rounded-lg shadow">
+                  <Link href={`/course/${courseName}`}>
+                    <a className="text-indigo-600 hover:text-indigo-800">{courseName}</a>
+                  </Link>
+                </div>
               ))}
             </div>
-          ) : (
-            <p className="text-center text-gray-600">You haven't purchased any courses yet.</p>
           )}
         </div>
       </main>
