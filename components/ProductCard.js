@@ -1,33 +1,30 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import { auth } from '../firebase';
-import { get, ref, set } from 'firebase/database';
-import { database } from '../firebase';
+import { useEffect } from 'react';
+import { toast } from 'react-toastify';
 import Image from 'next/image';
 import Link from 'next/link';
-import { toast } from 'react-toastify';
+import { useRouter } from 'next/router';
+import Rating from './Rating';
 
-export default function ProductCard({ course, purchasedCourses }) {
+export default function ProductCard({ course, isPurchased, user }) {
   const router = useRouter();
-  const [isPurchased, setIsPurchased] = useState(false);
-  const user = auth.currentUser;
 
   useEffect(() => {
-    if (user && purchasedCourses) {
-      setIsPurchased(purchasedCourses.includes(course.name));
-    }
-  }, [user, purchasedCourses, course.name]);
+    const script = document.createElement('script');
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    script.async = true;
+    script.onload = () => console.log('Cashfree SDK loaded');
+    document.body.appendChild(script);
+  }, []);
 
-  const handleBuyNow = async () => {
+  const handleBuyNow = () => {
     if (!user) {
-      toast.error('Please sign in to purchase a course');
-      router.push('/login');
+      toast.error('Please sign in to purchase this course.');
       return;
     }
-
     router.push({
       pathname: '/checkout',
       query: {
+        courseId: course.id,
         courseName: course.name,
         amount: course.price,
       },
@@ -36,23 +33,22 @@ export default function ProductCard({ course, purchasedCourses }) {
 
   const handleViewCourse = () => {
     if (!user) {
-      toast.error('Please sign in to view the course');
-      router.push('/login');
+      toast.error('Please sign in to view this course.');
       return;
     }
     if (!isPurchased) {
-      toast.error('Please purchase the course to access it');
+      toast.error('Please purchase this course to access the materials.');
       return;
     }
-    router.push(`/course/${course.name}`);
+    router.push(`/courses/${course.id}`);
   };
 
   return (
     <div className="product-card bg-white rounded-xl shadow-lg overflow-hidden transition-transform hover:scale-105">
-      <Link href={`/course/${course.name}`}>
+      <Link href={`/courses/${course.id}`}>
         <div className="image-container relative w-full h-64">
           <Image
-            src={course.image || '/default-course.jpg'}
+            src="/default-book.jpg"
             alt={course.name}
             fill
             className="object-cover"
@@ -61,12 +57,13 @@ export default function ProductCard({ course, purchasedCourses }) {
         </div>
       </Link>
       <div className="content p-6 flex flex-col">
-        <Link href={`/course/${course.name}`}>
+        <Link href={`/courses/${course.id}`}>
           <h2 className="text-xl font-semibold text-gray-800 mb-2 hover:text-indigo-600 transition-colors">
             {course.name}
           </h2>
         </Link>
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.files.length} PDF(s) available</p>
+        <Rating rating={4} />
         <div className="flex justify-between items-center mt-4">
           <span className="text-2xl font-bold text-indigo-600">₹{course.price}</span>
           {isPurchased ? (
