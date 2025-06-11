@@ -1,39 +1,49 @@
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
-import { auth } from '../firebase';
-import { toast } from 'react-toastify';
+import { getAuth } from 'firebase/auth';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function Checkout() {
   const router = useRouter();
-  const { courseName, amount } = router.query;
-  const [customerDetails, setCustomerDetails] = useState({
-    name: '',
-    email: '',
-    phone: '',
+  const { courseId, courseName, amount } = router.query;
+  const [user, setUser] = useState(null);
+  const [formData, setFormData] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (auth.currentUser) {
-      setCustomerDetails({
-        name: auth.currentUser.displayName || '',
-        email: auth.currentUser.email || '',
-        phone: auth.currentUser.phoneNumber || '',
-      });
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      if (user) {
+        setFormData({
+          customerName: user.displayName || '',
+          customerEmail: user.email || '',
+          customerPhone: '',
+        });
+      } else {
+        toast.error('Please sign in to proceed with the purchase.');
+        router.push('/');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleInputChange = (e) => {
-    setCustomerDetails({ ...customerDetails, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePayment = async () => {
-    if (!customerDetails.name || !customerDetails.email || !customerDetails.phone) {
-      toast.error('Please fill in all details');
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    if (!formData.customerName || !formData.customerEmail || !formData.customerPhone) {
+      toast.error('Please fill in all fields.');
       return;
     }
 
@@ -43,14 +53,12 @@ export default function Checkout() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          courseId,
           courseName,
           amount,
-          customerName: customerDetails.name,
-          customerEmail: customerDetails.email,
-          customerPhone: customerDetails.phone,
+          ...formData,
         }),
       });
-
       const data = await response.json();
       if (data.success) {
         const cashfree = new window.Cashfree(data.paymentSessionId);
@@ -59,52 +67,63 @@ export default function Checkout() {
         toast.error(data.error);
       }
     } catch (error) {
-      toast.error('Payment initiation failed');
+      toast.error('Payment initiation failed.');
     }
     setIsLoading(false);
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      <Navbar user={user} />
+      <ToastContainer />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-3xl font-bold text-center mb-8">Checkout</h1>
-          <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Course: {courseName}</h2>
-            <p className="text-lg mb-4">Amount: ₹{amount}</p>
-            <div className="space-y-4">
-              <input
-                type="text"
-                name="name"
-                value={customerDetails.name}
-                onChange={handleInputChange}
-                placeholder="Full Name"
-                className="w-full px-4 py-2 border rounded-lg"
-              />
-              <input
-                type="email"
-                name="email"
-                value={customerDetails.email}
-                onChange={handleInputChange}
-                placeholder="Email"
-                className="w-full px-4 py-2 border rounded-lg"
-              />
-              <input type="tel"
-                name="phone"
-                value={customerDetails.phone}
-                onChange={handleInputChange}
-                placeholder="Phone Number"
-                className="w-full px-4 py-2 border rounded-lg"
-              />
+          <h1 className="text-3xl font-bold text-center mb-12">Checkout</h1>
+          <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-4">{courseName}</h2>
+            <p className="text-gray-600 mb-4">Amount: ₹{amount}</p>
+            <form onSubmit={handlePayment}>
+              <div className="mb-4">
+                <label className="block text-gray-700">Name</label>
+                <input
+                  type="text"
+                  name="customerName"
+                  value={formData.customerName}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700">Email</label>
+                <input
+                  type="email"
+                  name="customerEmail"
+                  value={formData.customerEmail}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700">Phone</label>
+                <input
+                  type="tel"
+                  name="customerPhone"
+                  value={formData.customerPhone}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
               <button
-                onClick={handlePayment}
+                type="submit"
+                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 disabled={isLoading}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400"
               >
                 {isLoading ? 'Processing...' : 'Proceed to Payment'}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </main>
