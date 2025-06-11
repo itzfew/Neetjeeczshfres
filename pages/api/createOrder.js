@@ -1,9 +1,8 @@
- // pages/api/createOrder.js
+// pages/api/createOrder.js
 import axios from 'axios';
 import firebaseApp from '../../lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
-import { getApps } from 'firebase/app';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK (only once)
