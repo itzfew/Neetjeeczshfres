@@ -5,10 +5,14 @@ import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+export async function getServerSideProps() {
+  return { props: {} }; // Prevent static generation
+}
+
 export default function Checkout() {
   const router = useRouter();
   const { courseName, amount } = router.query;
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -16,23 +20,24 @@ export default function Checkout() {
   });
 
   useEffect(() => {
-    if (!user) {
+    if (!loading && !user) {
       toast.error('Please sign in to proceed with checkout');
       router.push('/login');
-    } else {
+    } else if (user) {
       setFormData({
         customerName: user.displayName || '',
         customerEmail: user.email || '',
         customerPhone: '',
       });
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handlePayment = async () => {
+    if (!user) return;
     try {
       const response = await fetch('/api/createOrder', {
         method: 'POST',
@@ -58,6 +63,14 @@ export default function Checkout() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -76,40 +89,41 @@ export default function Checkout() {
                 onChange={handleInputChange}
                 className="w-full p-2 border rounded-md"
                 required
-            />
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                type="email"
+                name="customerEmail"
+                value={formData.customerEmail}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded-md"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <input
+                type="tel"
+                name="customerPhone"
+                value={formData.customerPhone}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded-md"
+                required
+              />
+            </div>
+            <button
+              onClick={handlePayment}
+              className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              disabled={!user}
+            >
+              Pay Now
+            </button>
           </div>
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="customerEmail"
-              value={formData.customerEmail}
-              onChange={handleInputChange}
-              className="w-full p-2 border-gray-300 rounded-md"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Phone</label>
-            <input
-              type="tel"
-              name="customerPhone"
-              value={formData.customerPhone}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md"
-              required
-            />
-          </div>
-          <button
-            onClick={handlePayment}
-            className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            Pay Now
-          </button>
         </div>
-      </div>
-    </main>
-    <Footer />
-  </div>
-);
+      </main>
+      <Footer />
+    </div>
+  );
 }
