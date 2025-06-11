@@ -3,14 +3,26 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+export async function getServerSideProps() {
+  return { props: {} }; // Prevent static generation
+}
+
 export default function Login() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, loading } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
     await signInWithGoogle();
     router.push('/');
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
