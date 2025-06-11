@@ -1,3 +1,4 @@
+// pages/checkout.js
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getAuth } from 'firebase/auth';
@@ -5,6 +6,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import firebaseApp from '../lib/firebase';
 
 export default function Checkout() {
   const router = useRouter();
@@ -18,7 +20,7 @@ export default function Checkout() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const auth = getAuth();
+    const auth = getAuth(firebaseApp);
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
@@ -49,9 +51,14 @@ export default function Checkout() {
 
     setIsLoading(true);
     try {
+      const auth = getAuth(firebaseApp);
+      const idToken = await auth.currentUser.getIdToken();
       const response = await fetch('/api/createOrder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           courseId,
           courseName,
@@ -67,7 +74,7 @@ export default function Checkout() {
         toast.error(data.error);
       }
     } catch (error) {
-      toast.error('Payment initiation failed.');
+      toast.error('Payment initiation failed: ' + error.message);
     }
     setIsLoading(false);
   };
