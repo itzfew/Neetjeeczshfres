@@ -14,7 +14,6 @@ export default async function handler(req, res) {
   const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://neetjeeczshfres.vercel.app';
     const response = await axios.post(
       'https://api.cashfree.com/pg/orders',
       {
@@ -28,7 +27,7 @@ export default async function handler(req, res) {
           customer_phone: customerPhone,
         },
         order_meta: {
-          return_url: `${baseUrl}/success?order_id={order_id}&course_name=${encodeURIComponent(courseName)}`,
+          return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_name=${courseName}`,
         },
         order_note: `Course: ${courseName}`,
       },
@@ -53,7 +52,6 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: 'Failed to create Cashfree order',
-      details: error?.response?.data || error.message,
     });
   }
 }
