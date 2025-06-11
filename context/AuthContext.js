@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { db } from '../firebase';
+import { db } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 const AuthContext = createContext({
