@@ -52,6 +52,6 @@ export default function Success() {
         </div>
       </main>
       <Footer />
-    );
-  }
+    </div>
+  );
 }
