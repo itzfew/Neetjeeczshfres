@@ -7,6 +7,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import { get, ref } from 'firebase/database';
 import { realtimeDb } from '../firebase';
 
+export async function getServerSideProps() {
+  return { props: {} }; // Prevent static generation
+}
+
 export default function Home() {
   const [courses, setCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,7 +23,7 @@ export default function Home() {
         if (snapshot.exists()) {
           const files = snapshot.val();
           const courseMap = {};
-          Object.values(files).forEach(file => {
+          Object.values(files).forEach((file) => {
             if (!courseMap[file.folder]) {
               courseMap[file.folder] = {
                 name: file.folder,
