@@ -29,6 +29,7 @@ export default function Home() {
                 name: file.folder,
                 price: file.folder === 'Pw' ? 5 : file.folder === 'Xgnccgnf' ? 10 : 15,
                 pdfs: [],
+                description: file.description || 'Premium study materials', // Ensure description is set
               };
             }
             courseMap[file.folder].pdfs.push({
@@ -66,6 +67,8 @@ export default function Home() {
             <div className="flex justify-center items-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
             </div>
+          ) : courses.length === 0 ? (
+            <p className="text-center text-gray-600">No courses available.</p>
           ) : (
             <>
               <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Courses</h2>
