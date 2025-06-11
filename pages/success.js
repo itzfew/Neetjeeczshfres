@@ -7,33 +7,44 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 
+export async function getServerSideProps() {
+  return { props: {} }; // Prevent static generation
+}
+
 export default function Success() {
   const router = useRouter();
   const { course_name, order_id } = router.query;
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const savePurchase = async () => {
-      if (user && course_name && order_id) {
-        try {
-          await setDoc(doc(db, 'purchases', `${user.uid}_${course_name}`), {
-            userId: user.uid,
-            courseName: course_name,
-            orderId: order_id,
-            purchaseDate: new Date().toISOString(),
-          });
-          toast.success('Course purchased successfully!');
-          setTimeout(() => {
-            router.push(`/course/${course_name}`);
-          }, 3000);
-        } catch (error) {
-          console.error('Error saving purchase:', error);
-          toast.error('Failed to save purchase');
-        }
+      if (loading || !user || !course_name || !order_id) return;
+      try {
+        await setDoc(doc(db, 'purchases', `${user.uid}_${course_name}`), {
+          userId: user.uid,
+          courseName: course_name,
+          orderId: order_id,
+          purchaseDate: new Date().toISOString(),
+        });
+        toast.success('Course purchased successfully!');
+        setTimeout(() => {
+          router.push(`/course/${course_name}`);
+        }, 3000);
+      } catch (error) {
+        console.error('Error saving purchase:', error);
+        toast.error('Failed to save purchase');
       }
     };
     savePurchase();
-  }, [user, course_name, order_id, router]);
+  }, [user, loading, course_name, order_id, router]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -45,7 +56,10 @@ export default function Success() {
             Thank you for your purchase. You will be redirected to the course in 3 seconds.
           </p>
           <p className="text-center">
-            <a href={`/course/${course_name}`} className="text-indigo-600 hover:text-indigo-800 transition-colors">
+            <a
+              href={`/course/${course_name}`}
+              className="text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
               Go to course now
             </a>
           </p>
