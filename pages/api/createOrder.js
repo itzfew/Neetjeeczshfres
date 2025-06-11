@@ -5,9 +5,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const { courseName, amount, customerName, customerEmail, customerPhone, userId } = req.body;
+  const { courseName, amount, customerName, customerEmail, customerPhone } = req.body;
 
-  if (!courseName || !amount || !customerName || !customerEmail || !customerPhone || !userId) {
+  if (!courseName || !amount || !customerName || !customerEmail || !customerPhone) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
@@ -21,15 +21,16 @@ export default async function handler(req, res) {
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: userId,
+          customer_id: `cust_${Date.now()}`,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
         },
         order_meta: {
           return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_name=${courseName}`,
+          notify_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`,
         },
-        order_note: `Course: ${courseName}`,
+        order_note: courseName,
       },
       {
         headers: {
