@@ -1,39 +1,33 @@
 import { useRouter } from 'next/router';
-import { useAuth } from '../context/AuthContext';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../firebase';
+import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-export async function getServerSideProps() {
-  return { props: {} }; // Prevent static generation
-}
-
 export default function Login() {
-  const { signInWithGoogle, loading } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async () => {
-    await signInWithGoogle();
-    router.push('/');
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      toast.success('Signed in successfully!');
+      router.push('/');
+    } catch (error) {
+      toast.error('Sign-in failed: ' + error.message);
+    }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow">
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md text-center">
-            <h1 className="text-2xl font-bold mb-4">Sign In</h1>
+        <div className="container mx-auto px-4 py-12 flex justify-center items-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg">
+            <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
             <button
-              onClick={handleLogin}
-              className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              onClick={handleGoogleSignIn}
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Sign in with Google
             </button>
