@@ -1,14 +1,22 @@
 import axios from 'axios';
+import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, set } from 'firebase/database';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const { courseName, amount, customerName, customerEmail, customerPhone } = req.body;
+  const { courseId, courseName, amount, customerName, customerEmail, customerPhone } = req.body;
 
-  if (!courseName || !amount || !customerName || !customerEmail || !customerPhone) {
+  if (!courseId || !courseName || !amount || !customerName || !customerEmail || !customerPhone) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
   const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -21,13 +29,13 @@ export default async function handler(req, res) {
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: `cust_${Date.now()}`,
+          customer_id: user.uid,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
         },
         order_meta: {
-          return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_name=${courseName}`,
+          return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_id=${courseId}`,
           notify_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`,
         },
         order_note: courseName,
@@ -42,11 +50,22 @@ export default async function handler(req, res) {
       }
     );
 
+    const paymentSessionId = response.data.payment_session_id;
+
+    // Save purchase to Firebase
+    const db = getDatabase();
+    await set(ref(db, `purchases/${user.uid}/${courseId}`), {
+      courseId,
+      courseName,
+      amount,
+      purchasedAt: new Date().toISOString(),
+    });
+
     return res.status(200).json({
       success: true,
-      paymentSessionId: response.data.payment_session_id,
+      paymentSessionId,
       orderId,
-      courseName,
+      courseId,
     });
   } catch (error) {
     console.error('Cashfree order creation failed:', error?.response?.data || error.message);
