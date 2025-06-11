@@ -1,23 +1,21 @@
 import { useEffect, useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import 'pdfjs-dist/build/pdf.worker.entry';
 
 export default function PDFViewer({ pdfUrl }) {
-  const viewerRef = useRef(null);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
-    const loadPDFViewer = async () => {
-      const pdfjsLib = await import('pdfjs-dist/build/pdf');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';
-
-      const loadingTask = pdfjsLib.getDocument(pdfUrl);
-      const pdf = await loadingTask.promise;
+    const loadPDF = async () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
+      const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
       const page = await pdf.getPage(1);
-
-      const viewer = viewerRef.current;
-      const context = viewer.getContext('2d');
       const viewport = page.getViewport({ scale: 1.5 });
 
-      viewer.height = viewport.height;
-      viewer.width = viewport.width;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
 
       const renderContext = {
         canvasContext: context,
@@ -25,8 +23,9 @@ export default function PDFViewer({ pdfUrl }) {
       };
       await page.render(renderContext).promise;
     };
-    loadPDFViewer();
+
+    loadPDF();
   }, [pdfUrl]);
 
-  return <canvas ref={viewerRef} className="mx-auto border" />;
+  return <canvas ref={canvasRef} className="mx-auto" />;
 }
