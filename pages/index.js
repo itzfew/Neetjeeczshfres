@@ -1,69 +1,79 @@
 import { useEffect, useState } from 'react';
-import { auth, database } from '../firebase';
-import { get, ref } from 'firebase/database';
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getDatabase, ref, onValue, set } from 'firebase/database';
 import ProductCard from '../components/ProductCard';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import firebaseApp from '../lib/firebase';
 
 export default function Home() {
   const [courses, setCourses] = useState([]);
-  const [purchasedCourses, setPurchasedCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [purchasedCourses, setPurchasedCourses] = useState([]);
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      const coursesRef = ref(database, 'files');
-      const snapshot = await get(coursesRef);
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const courseMap = {};
-        Object.values(data).forEach((file) => {
-          if (!courseMap[file.folder]) {
-            courseMap[file.folder] = {
+    const auth = getAuth(firebaseApp);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      if (user) {
+        const db = getDatabase();
+        const purchasesRef = ref(db, `purchases/${user.uid}`);
+        onValue(purchasesRef, (snapshot) => {
+          const data = snapshot.val();
+          setPurchasedCourses(data ? Object.keys(data) : []);
+        });
+      }
+    });
+
+    const db = getDatabase();
+    const filesRef = ref(db, 'files');
+    onValue(filesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const courseList = Object.values(data).reduce((acc, file) => {
+          if (!acc[file.folder]) {
+            acc[file.folder] = {
+              id: file.folder,
               name: file.folder,
               price: file.folder === 'Pw' ? 5 : 10, // Example pricing
-              description: `Learn with our premium ${file.folder} course materials.`,
-              image: '/default-course.jpg',
               files: [],
             };
           }
-          courseMap[file.folder].files.push({
-            name: file.name,
-            url: file.url,
-            pdfId: file.pdfId,
-          });
-        });
-        setCourses(Object.values(courseMap));
+          acc[file.folder].files.push(file);
+          return acc;
+        }, {});
+        setCourses(Object.values(courseList));
       }
       setIsLoading(false);
-    };
+    });
 
-    const fetchPurchasedCourses = async () => {
-      if (auth.currentUser) {
-        const userRef = ref(database, `users/${auth.currentUser.uid}/purchases`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-          setPurchasedCourses(Object.keys(snapshot.val()));
-        }
-      }
-    };
-
-    fetchCourses();
-    fetchPurchasedCourses();
+    return () => unsubscribe();
   }, []);
+
+  const handleSignIn = async () => {
+    const auth = getAuth(firebaseApp);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast.success('Signed in successfully!');
+    } catch (error) {
+      toast.error('Sign-in failed: ' + error.message);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      <Navbar user={user} onSignIn={handleSignIn} />
       <ToastContainer />
       <main className="flex-grow">
         <div className="hero bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-16">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Discover Your Next Course</h1>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">Discover Your Next Favorite Course</h1>
             <p className="text-lg md:text-xl max-w-2xl mx-auto">
-              Explore our curated collection of premium study materials and courses.
+              Explore our curated collection of premium study materials to excel in your learning journey.
             </p>
           </div>
         </div>
@@ -77,7 +87,12 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Courses</h2>
               <div className="product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {courses.map((course) => (
-                  <ProductCard key={course.name} course={course} purchasedCourses={purchasedCourses} />
+                  <ProductCard
+                    key={course.id}
+                    course={course}
+                    isPurchased={purchasedCourses.includes(course.id)}
+                    user={user}
+                  />
                 ))}
               </div>
             </>
