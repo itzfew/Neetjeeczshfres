@@ -1,40 +1,43 @@
+import { useEffect } from 'react';
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useRouter } from 'next/router';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
 import { toast } from 'react-toastify';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 
 export default function Login() {
   const router = useRouter();
+  const auth = getAuth();
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      toast.success('Signed in successfully!');
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast.success('Logged in successfully!');
       router.push('/');
     } catch (error) {
-      toast.error('Sign-in failed: ' + error.message);
+      console.error('Google Sign-In failed:', error);
+      toast.error('Failed to log in with Google');
     }
   };
 
+  useEffect(() => {
+    if (auth.currentUser) {
+      router.push('/');
+    }
+  }, [auth.currentUser, router]);
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <main className="flex-grow">
-        <div className="container mx-auto px-4 py-12 flex justify-center items-center">
-          <div className="bg-white p-8 rounded-lg shadow-lg">
-            <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
-            <button
-              onClick={handleGoogleSignIn}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Sign in with Google
-            </button>
-          </div>
+      <main className="flex-grow flex items-center justify-center">
+        <div className="p-8 bg-white rounded-xl shadow-lg max-w-md w-full">
+          <h1 className="text-2xl font-bold text-center mb-6">Login to Your Account</h1>
+          <button
+            onClick={handleGoogleSignIn}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Sign in with Google
+          </button>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }
