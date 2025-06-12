@@ -42,6 +42,11 @@ export default function Checkout() {
       return;
     }
 
+    if (!window.Cashfree) {
+      toast.error('Cashfree SDK not loaded. Please try again later.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch('/api/createOrder', {
@@ -62,10 +67,11 @@ export default function Checkout() {
         const cashfree = new window.Cashfree(data.paymentSessionId);
         cashfree.redirect();
       } else {
-        toast.error(data.error || 'Failed to initiate payment.');
+        toast.error(data.error + (data.details ? `: ${JSON.stringify(data.details)}` : ''));
       }
     } catch (error) {
-      toast.error('An error occurred during payment initiation.');
+      console.error('Payment initiation error:', error);
+      toast.error('An error occurred during payment initiation: ' + error.message);
     } finally {
       setIsLoading(false);
     }
