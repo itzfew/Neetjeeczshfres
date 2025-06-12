@@ -86,7 +86,7 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-gray-800 mb-6">
             You are not logged in.
           </h1>
-          <p className="text-gray-600 mb-4">Please sign up or log in to access the courses.</p>
+          <p className="text-gray-600 mb-4">Please sign up or log in to access the study courses.</p>
           <div className="flex justify-center space-x-4">
             <Link href="/login?mode=signup">
               <a className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center">
