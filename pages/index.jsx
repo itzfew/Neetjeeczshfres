@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { initializeApp } from 'firebase/app';
 import Link from 'next/link';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaFolder, FaFilePdf, FaSignOutAlt, FaSearch, FaSpinner } from 'react-icons/fa';
+import { FaFolder, FaFilePdf, FaSignOutAlt, FaSearch, FaSpinner, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -33,12 +33,9 @@ export default function Home() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
       if (currentUser) {
-        setUser(currentUser);
         fetchCourses();
-      } else {
-        setUser(null);
-        router.push('/login');
       }
     });
     return () => unsubscribe();
@@ -63,23 +60,11 @@ export default function Home() {
     });
   };
 
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      toast.success('Logged in successfully!');
-      router.push('/');
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast.success('Logged out successfully!');
       setCourses({});
-      router.push('/login');
     } catch (error) {
       toast.error(error.message);
     }
@@ -93,6 +78,32 @@ export default function Home() {
     setOpenCourse(openCourse === courseId ? null : courseId);
   };
 
+  if (!user) {
+    return (
+      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+        <ToastContainer />
+        <div className="container mx-auto bg-white rounded-xl shadow-xl p-8 max-w-4xl w-full text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6">
+            You are not logged in.
+          </h1>
+          <p className="text-gray-600 mb-4">Please sign up or log in to access the courses.</p>
+          <div className="flex justify-center space-x-4">
+            <Link href="/login?mode=signup">
+              <a className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center">
+                <FaUserPlus className="mr-2" /> Signup
+              </a>
+            </Link>
+            <Link href="/login?mode=login">
+              <a className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
+                <FaSignInAlt className="mr-2" /> Login
+              </a>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-100 min-h-screen flex items-center justify-center">
       <ToastContainer />
@@ -101,29 +112,27 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-gray-800 flex items-center">
             <FaFolder className="mr-2 text-yellow-500" /> Study Courses
           </h1>
-          {user && (
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                placeholder="Search courses..."
-                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={handleSearch}
-                value={searchQuery}
-              />
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
-                onClick={fetchCourses}
-              >
-                <FaSearch className="mr-2" /> Refresh
-              </button>
-              <button
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center"
-                onClick={handleLogout}
-              >
-                <FaSignOutAlt className="mr-2" /> Logout
-              </button>
-            </div>
-          )}
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              placeholder="Search courses..."
+              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={handleSearch}
+              value={searchQuery}
+            />
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+              onClick={fetchCourses}
+            >
+              <FaSearch className="mr-2" /> Refresh
+            </button>
+            <button
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center"
+              onClick={handleLogout}
+            >
+              <FaSignOutAlt className="mr-2" /> Logout
+            </button>
+          </div>
         </div>
         {loading && (
           <div className="flex justify-center">
