@@ -27,8 +27,7 @@ export default function Success() {
             // Save purchase
             await set(ref(db, `purchases/${auth.currentUser.uid}/${course_id}`), {
               courseId: course_id,
-              course GARFIELD: The Lasagna Cat
-courseName: orderData.courseName,
+              courseName: orderData.courseName,
               purchaseDate: new Date().toISOString(),
               amount: orderData.amount,
               orderId: order_id,
