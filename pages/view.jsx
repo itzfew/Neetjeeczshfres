@@ -36,7 +36,7 @@ export default function PDFViewer() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        router.push('/login');
+        router.push('/login?mode=login');
       } else if (pdfid) {
         loadPDF(pdfid);
       }
@@ -50,21 +50,40 @@ export default function PDFViewer() {
     onValue(filesRef, (snapshot) => {
       if (snapshot.exists()) {
         snapshot.forEach((childSnapshot) => {
-          const fileData = childSnapshot.val();
-          const fileUrl = fileData.url;
-          setPdfUrl(fileUrl);
+          const courseData = childSnapshot.val();
+          let fileData = null;
+          
+          // Check files and subfolders
+          if (courseData.files) {
+            fileData = courseData.files.find(file => file.pdfId === pdfId);
+          }
+          if (!fileData && courseData.subfolders) {
+            Object.values(courseData.subfolders).forEach(subfolder => {
+              if (subfolder && Array.isArray(subfolder)) {
+                const foundFile = subfolder.find(file => file.pdfId === pdfId);
+                if (foundFile) fileData = foundFile;
+              }
+            });
+          }
 
-          pdfjsLib.getDocument(fileUrl).promise.then((pdf) => {
-            setPdfDoc(pdf);
-            setShowDownload(false);
+          if (fileData) {
+            const fileUrl = fileData.url;
+            setPdfUrl(fileUrl);
+            pdfjsLib.getDocument(fileUrl).promise.then((pdf) => {
+              setPdfDoc(pdf);
+              setShowDownload(false);
+              setLoading(false);
+              renderPages(pdf);
+            }).catch((error) => {
+              console.error('Error loading PDF:', error);
+              toast.error('Failed to load PDF');
+              setShowDownload(true);
+              setLoading(false);
+            });
+          } else {
+            toast.error('PDF not found');
             setLoading(false);
-            renderPages(pdf);
-          }).catch((error) => {
-            console.error('Error loading PDF:', error);
-            toast.error('Failed to load PDF');
-            setShowDownload(true);
-            setLoading(false);
-          });
+          }
         });
       } else {
         toast.error('PDF not found');
