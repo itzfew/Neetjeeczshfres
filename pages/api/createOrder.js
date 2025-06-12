@@ -5,32 +5,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const { courseId, courseName, amount, telegramLink, customerName, customerEmail, customerPhone } = req.body;
+  const { productId, productName, amount, telegramLink, customerName, customerEmail, customerPhone } = req.body;
 
-  if (!courseId || !courseName || !amount || !customerName || !customerEmail || !customerPhone) {
+  if (!productId || !productName || !amount || !telegramLink || !customerName || !customerEmail || !customerPhone) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
   const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
   try {
-    console.log('Creating Cashfree order with body:', {
-      order_id: orderId,
-      order_amount: amount,
-      order_currency: 'INR',
-      customer_details: {
-        customer_id: `cust_${courseId}_${Date.now()}`,
-        customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-      },
-      order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_id=${courseId}`,
-        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`,
-      },
-      order_note: telegramLink,
-    });
-
     const response = await axios.post(
       'https://api.cashfree.com/pg/orders',
       {
@@ -38,14 +21,14 @@ export default async function handler(req, res) {
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: `cust_${courseId}_${Date.now()}`,
+          customer_id: 'cust_' + productId,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
         },
         order_meta: {
-          return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&course_id=${courseId}`,
-          notify_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`,
+          return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?order_id={order_id}&product_id=${productId}`,
+          notify_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`, // Optional
         },
         order_note: telegramLink,
       },
@@ -59,19 +42,19 @@ export default async function handler(req, res) {
       }
     );
 
+    const paymentSessionId = response.data.payment_session_id;
+
     return res.status(200).json({
       success: true,
-      paymentSessionId: response.data.payment_session_id,
+      paymentSessionId,
       orderId,
-      telegramLink,
-      courseId,
+      telegramLink, // Include for success page
     });
   } catch (error) {
     console.error('Cashfree order creation failed:', error?.response?.data || error.message);
     return res.status(500).json({
       success: false,
       error: 'Failed to create Cashfree order',
-      details: error?.response?.data || error.message,
     });
   }
 }
