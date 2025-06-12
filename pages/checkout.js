@@ -1,17 +1,14 @@
-// pages/checkout.js
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { getAuth } from 'firebase/auth';
+import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import firebaseApp from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Checkout() {
+  const { user } = useAuth();
   const router = useRouter();
-  const { courseId, courseName, amount } = router.query;
-  const [user, setUser] = useState(null);
+  const { courseId, courseName, amount, telegramLink } = router.query;
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -20,50 +17,44 @@ export default function Checkout() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const auth = getAuth(firebaseApp);
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
-      if (user) {
-        setFormData({
-          customerName: user.displayName || '',
-          customerEmail: user.email || '',
-          customerPhone: '',
-        });
-      } else {
-        toast.error('Please sign in to proceed with the purchase.');
-        router.push('/');
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (user) {
+      setFormData({
+        customerName: user.displayName || '',
+        customerEmail: user.email || '',
+        customerPhone: '',
+      });
+    }
+  }, [user]);
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePayment = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!user) {
+      toast.error('Please sign in to proceed with the purchase.');
+      return;
+    }
     if (!formData.customerName || !formData.customerEmail || !formData.customerPhone) {
-      toast.error('Please fill in all fields.');
+      toast.error('Please fill in all required fields.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const auth = getAuth(firebaseApp);
-      const idToken = await auth.currentUser.getIdToken();
       const response = await fetch('/api/createOrder', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
           courseName,
-          amount,
-          ...formData,
+          amount: parseFloat(amount),
+          telegramLink,
+          customerName: formData.customerName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
         }),
       });
       const data = await response.json();
@@ -71,66 +62,66 @@ export default function Checkout() {
         const cashfree = new window.Cashfree(data.paymentSessionId);
         cashfree.redirect();
       } else {
-        toast.error(data.error);
+        toast.error(data.error || 'Failed to initiate payment.');
       }
     } catch (error) {
-      toast.error('Payment initiation failed: ' + error.message);
+      toast.error('An error occurred during payment initiation.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar user={user} />
-      <ToastContainer />
+      <Navbar />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-3xl font-bold text-center mb-12">Checkout</h1>
-          <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">{courseName}</h2>
+          <h1 className="text-3xl font-bold text-center mb-8">Checkout</h1>
+          <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Course: {courseName}</h2>
             <p className="text-gray-600 mb-4">Amount: ₹{amount}</p>
-            <form onSubmit={handlePayment}>
-              <div className="mb-4">
-                <label className="block text-gray-700">Name</label>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
                 <input
                   type="text"
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="mt-1 p-2 w-full border rounded-lg"
                   required
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700">Email</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input
                   type="email"
                   name="customerEmail"
                   value={formData.customerEmail}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  onChange={handleInputChange
+                className="mt-1 p-2 w-full border rounded-lg"
                   required
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700">Phone</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone</label>
                 <input
                   type="tel"
                   name="customerPhone"
                   value={formData.customerPhone}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="mt-1 p-2 w-full border rounded-lg"
                   required
                 />
               </div>
               <button
-                type="submit"
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                onClick={handleSubmit}
                 disabled={isLoading}
+                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400"
               >
                 {isLoading ? 'Processing...' : 'Proceed to Payment'}
               </button>
-            </form>
+            </div>
           </div>
         </div>
       </main>
