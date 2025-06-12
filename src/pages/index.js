@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getDatabase, ref, onValue } from 'firebase/database';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import FileList from '../components/FileList';
@@ -20,7 +19,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const database = getDatabase(app);
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -30,11 +28,20 @@ export default function Home() {
   const [loginPassword, setLoginPassword] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) setShowLoginModal(true);
+      setLoadingAuth(false);
+      if (!currentUser) {
+        setShowLoginModal(true);
+        toast.info('Please log in to view courses.');
+      }
+    }, (error) => {
+      console.error('Auth state error:', error);
+      toast.error('Error checking authentication status.');
+      setLoadingAuth(false);
     });
     return () => unsubscribe();
   }, []);
@@ -46,6 +53,7 @@ export default function Home() {
       setShowLoginModal(false);
       toast.success('Logged in with Google!');
     } catch (error) {
+      console.error('Google login error:', error);
       toast.error(error.message);
     }
   };
@@ -56,6 +64,7 @@ export default function Home() {
       setShowLoginModal(false);
       toast.success('Logged in successfully!');
     } catch (error) {
+      console.error('Email login error:', error);
       toast.error(error.message);
     }
   };
@@ -66,6 +75,7 @@ export default function Home() {
       setShowSignupModal(false);
       toast.success('Signed up successfully!');
     } catch (error) {
+      console.error('Signup error:', error);
       toast.error(error.message);
     }
   };
@@ -75,9 +85,18 @@ export default function Home() {
       await signOut(auth);
       toast.success('Logged out successfully!');
     } catch (error) {
+      console.error('Logout error:', error);
       toast.error(error.message);
     }
   };
+
+  if (loadingAuth) {
+    return (
+      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -95,7 +114,7 @@ export default function Home() {
             />
             <button
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              onClick={() => document.getElementById('fileList').dispatchEvent(new Event('refresh'))}
+              onClick={() => document.getElementById('fileList')?.dispatchEvent(new Event('refresh'))}
             >
               Refresh
             </button>
@@ -104,14 +123,18 @@ export default function Home() {
             </button>
           </div>
         </div>
-        {user && <FileList user={user} />}
+        {user ? (
+          <FileList user={user} />
+        ) : (
+          <div className="text-center text-gray-600">Please log in to view available courses.</div>
+        )}
       </div>
 
       {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg w-96">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-theory
               <h2 className="text-xl font-bold">Login</h2>
               <span className="cursor-pointer text-red-500 text-xl" onClick={() => setShowLoginModal(false)}>
                 ×
