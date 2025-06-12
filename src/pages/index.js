@@ -1,10 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import FileList from '../components/FileList';
 import { FaFolderOpen } from 'react-icons/fa';
+
+// Error Boundary Component
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="text-center text-red-500 p-4">
+          <h2>Error: {this.state.error?.message || 'Something went wrong'}</h2>
+          <p>Please try refreshing the page or contact support.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,8 +38,14 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+}
+
+const auth = app ? getAuth(app) : null;
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -29,9 +56,17 @@ export default function Home() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!auth) {
+      setError('Firebase authentication is not initialized. Check environment variables.');
+      setLoadingAuth(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('Auth state changed:', currentUser ? currentUser.uid : 'No user');
       setUser(currentUser);
       setLoadingAuth(false);
       if (!currentUser) {
@@ -40,9 +75,10 @@ export default function Home() {
       }
     }, (error) => {
       console.error('Auth state error:', error);
-      toast.error('Error checking authentication status.');
+      setError('Error checking authentication status: ' + error.message);
       setLoadingAuth(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -90,6 +126,17 @@ export default function Home() {
     }
   };
 
+  if (error) {
+    return (
+      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+        <div className="text-center text-red-500 p-4">
+          <h2>Error: {error}</h2>
+          <p>Please check your Firebase configuration or try again later.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loadingAuth) {
     return (
       <div className="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -99,130 +146,132 @@ export default function Home() {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen flex items-center justify-center">
-      <div className="container mx-auto bg-white rounded-xl shadow-xl p-8 max-w-4xl w-full">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-            <FaFolderOpen className="mr-2" /> Test Series Free
-          </h1>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Search files..."
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              onClick={() => document.getElementById('fileList')?.dispatchEvent(new Event('refresh'))}
-            >
-              Refresh
-            </button>
-            <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700" onClick={handleLogout}>
-              Logout
-            </button>
+    <ErrorBoundary>
+      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+        <div className="container mx-auto bg-white rounded-xl shadow-xl p-8 max-w-4xl w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+              <FaFolderOpen className="mr-2" /> Test Series Free
+            </h1>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search files..."
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                onClick={() => document.getElementById('fileList')?.dispatchEvent(new Event('refresh'))}
+              >
+                Refresh
+              </button>
+              <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
           </div>
+          {user ? (
+            <FileList user={user} />
+          ) : (
+            <div className="text-center text-gray-600">Please log in to view available courses.</div>
+          )}
         </div>
-        {user ? (
-          <FileList user={user} />
-        ) : (
-          <div className="text-center text-gray-600">Please log in to view available courses.</div>
+
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg w-96">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Login</h2>
+                <span className="cursor-pointer text-red-500 text-xl" onClick={() => setShowLoginModal(false)}>
+                  ×
+                </span>
+              </div>
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+              />
+              <div className="flex justify-between">
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  onClick={handleEmailLogin}
+                >
+                  Login
+                </button>
+                <button
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  onClick={() => {
+                    setShowSignupModal(true);
+                    setShowLoginModal(false);
+                  }}
+                >
+                  Signup
+                </button>
+                <button
+                  className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+                  onClick={handleGoogleLogin}
+                >
+                  Google Login
+                </button>
+              </div>
+            </div>
+          </div>
         )}
+
+        {/* Signup Modal */}
+        {showSignupModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg w-96">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Signup</h2>
+                <span className="cursor-pointer text-red-500 text-xl" onClick={() => setShowSignupModal(false)}>
+                  ×
+                </span>
+              </div>
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={signupEmail}
+                onChange={(e) => setSignupEmail(e.target.value)}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={signupPassword}
+                onChange={(e) => setSignupPassword(e.target.value)}
+              />
+              <div className="flex justify-between">
+                <button
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  onClick={handleSignup}
+                >
+                  Signup
+                </button>
+                <button
+                  className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+                  onClick={() => setShowSignupModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        <ToastContainer />
       </div>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Login</h2>
-              <span className="cursor-pointer text-red-500 text-xl" onClick={() => setShowLoginModal(false)}>
-                ×
-              </span>
-            </div>
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-            />
-            <div className="flex justify-between">
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                onClick={handleEmailLogin}
-              >
-                Login
-              </button>
-              <button
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                onClick={() => {
-                  setShowSignupModal(true);
-                  setShowLoginModal(false);
-                }}
-              >
-                Signup
-              </button>
-              <button
-                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-                onClick={handleGoogleLogin}
-              >
-                Google Login
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Signup Modal */}
-      {showSignupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Signup</h2>
-              <span className="cursor-pointer text-red-500 text-xl" onClick={() => setShowSignupModal(false)}>
-                ×
-              </span>
-            </div>
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={signupEmail}
-              onChange={(e) => setSignupEmail(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full p-2 mb-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={signupPassword}
-              onChange={(e) => setSignupPassword(e.target.value)}
-            />
-            <div className="flex justify-between">
-              <button
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                onClick={handleSignup}
-              >
-                Signup
-              </button>
-              <button
-                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-                onClick={() => setShowSignupModal(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <ToastContainer />
-    </div>
+    </ErrorBoundary>
   );
 }
