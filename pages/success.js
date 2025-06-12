@@ -1,52 +1,34 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { getDatabase, ref, set } from 'firebase/database';
-import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { toast } from 'react-toastify';
 
 export default function Success() {
   const router = useRouter();
-  const { course_id, order_id } = router.query;
-  const { user } = useAuth();
+  const { product_id } = router.query;
   const [telegramLink, setTelegramLink] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user && course_id) {
-      const updatePurchase = async () => {
-        try {
-          const db = getDatabase();
-          const filesRef = ref(db, 'files');
-          const snapshot = await get(filesRef);
-          if (snapshot.exists()) {
-            const files = snapshot.val();
-            const course = Object.values(files).find((file) => file.folder === course_id);
-            if (course) {
-              setTelegramLink(course.telegramLink || 'https://t.me/your_default_channel');
-              // Update purchase in Firebase
-              await set(ref(db, `purchases/${user.uid}/courses/${course_id}`), true);
-              toast.success(`Successfully purchased ${course_id} course!`);
-              setTimeout(() => {
-                window.location.href = course.telegramLink || 'https://t.me/your_default_channel';
-              }, 5000);
-            } else {
-              toast.error('Course not found.');
-            }
+    if (product_id) {
+      fetch('/products.json')
+        .then((res) => res.json())
+        .then((data) => {
+          const product = data.find((p) => p.id === parseInt(product_id));
+          if (product && product.telegramLink) {
+            setTelegramLink(product.telegramLink);
+            setTimeout(() => {
+              window.location.href = product.telegramLink;
+            }, 5000); // Redirect after 5 seconds
           }
           setIsLoading(false);
-        } catch (error) {
-          console.error('Error updating purchase:', error);
-          toast.error('Failed to process purchase.');
+        })
+        .catch((error) => {
+          console.error('Error loading product:', error);
           setIsLoading(false);
-        }
-      };
-      updatePurchase();
-    } else {
-      setIsLoading(false);
+        });
     }
-  }, [user, course_id]);
+  }, [product_id]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -62,7 +44,7 @@ export default function Success() {
               <>
                 <h1 className="text-3xl font-bold text-center mb-4">Payment Successful!</h1>
                 <p className="text-center text-gray-600 mb-6">
-                  Thank you for your purchase. You will be redirected to the course material in 5 seconds.
+                  Thank you for your purchase. You will be redirected to the Material in 5 seconds,
                 </p>
                 <p className="text-center">
                   <a href={telegramLink} className="text-indigo-600 hover:text-indigo-800 transition-colors">
@@ -71,7 +53,7 @@ export default function Success() {
                 </p>
               </>
             ) : (
-              <p className="text-center text-gray-600">Error: Course link not found.</p>
+              <p className="text-center text-gray-600">Error: Telegram link not found.</p>
             )}
           </div>
         </div>
