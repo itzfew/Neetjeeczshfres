@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
