@@ -1,40 +1,22 @@
 import Link from 'next/link';
-import { signOut } from 'firebase/auth';
-import { toast } from 'react-toastify';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function Navbar({ user, onSignIn }) {
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      toast.success('Signed out successfully!');
-    } catch (error) {
-      toast.error('Sign-out failed: ' + error.message);
-    }
-  };
+export default function Navbar() {
+  const { user, login, logout } = useAuth();
 
   return (
-    <nav className="bg-indigo-600 text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link href="/" className="text-2xl font-bold">
-          StudyHub
-        </Link>
+    <nav className="bg-indigo-600 text-white py-4">
+      <div className="container mx-auto px-4 flex justify-between items-center">
+        <Link href="/" className="text-2xl font-bold">CourseApp</Link>
         <div className="space-x-4">
-          <Link href="/" className="hover:text-indigo-200">
-            Home
-          </Link>
+          <Link href="/" className="hover:text-indigo-200">Home</Link>
           {user && (
-            <Link href="/my-courses" className="hover:text-indigo-200">
-              My Courses
-            </Link>
+            <Link href="/my-courses" className="hover:text-indigo-200">My Courses</Link>
           )}
           {user ? (
-            <button onClick={handleSignOut} className="hover:text-indigo-200">
-              Sign Out
-            </button>
+            <button onClick={logout} className="hover:text-indigo-200">Logout</button>
           ) : (
-            <button onClick={onSignIn} className="hover:text-indigo-200">
-              Sign In with Google
-            </button>
+            <button onClick={login} className="hover:text-indigo-200">Sign in with Google</button>
           )}
         </div>
       </div>
