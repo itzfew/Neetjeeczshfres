@@ -1,65 +1,56 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { toast } from 'react-toastify';
+import { getDatabase, ref, set } from 'firebase/database';
 
-const AuthContext = createContext({
-  user: null,
-  loading: true,
-  signInWithGoogle: async () => {},
-  logout: async () => {},
-});
+const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        await setDoc(
-          doc(db, 'users', user.uid),
-          {
-            name: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL,
-            lastLogin: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      } else {
-        setUser(null);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Save user details to Firebase
+        const db = getDatabase();
+        set(ref(db, `users/${currentUser.uid}`), {
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          lastLogin: new Date().toISOString(),
+        });
       }
       setLoading(false);
     });
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
+  const login = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
+      toast.success('Successfully signed in!');
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
+      toast.error('Failed to sign in: ' + error.message);
     }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+      toast.success('Successfully signed out!');
+    } catch (error) {
+      toast.error('Failed to sign out: ' + error.message);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    return { user: null, loading: true, signInWithGoogle: async () => {}, logout: async () => {} };
-  }
-  return context;
 };
+
+export const useAuth = () => useContext(AuthContext);
