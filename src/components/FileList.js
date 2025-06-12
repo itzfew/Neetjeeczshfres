@@ -10,13 +10,16 @@ export default function FileList({ user }) {
   const [openFolder, setOpenFolder] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [purchasedFolders, setPurchasedFolders] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('FileList: Initializing for user:', user.uid);
     const database = getDatabase();
     const filesRef = ref(database, 'files');
     const purchasesRef = ref(database, `purchases/${user.uid}`);
 
     const unsubscribeFiles = onValue(filesRef, (snapshot) => {
+      console.log('FileList: Files snapshot received:', snapshot.val());
       const foldersData = {};
       if (snapshot.exists()) {
         snapshot.forEach((childSnapshot) => {
@@ -34,22 +37,24 @@ export default function FileList({ user }) {
           }
         });
       } else {
+        console.log('FileList: No files found in database.');
         toast.info('No files available in the database.');
       }
       setFolders(foldersData);
       setLoading(false);
     }, (error) => {
-      console.error('Error loading files:', error);
-      toast.error(`Error loading files: ${error.message}`);
+      console.error('FileList: Error loading files:', error);
+      setError(`Error loading files: ${error.message}`);
       setLoading(false);
     });
 
     const unsubscribePurchases = onValue(purchasesRef, (snapshot) => {
+      console.log('FileList: Purchases snapshot received:', snapshot.val());
       const purchases = snapshot.val() || {};
       setPurchasedFolders(Object.keys(purchases));
     }, (error) => {
-      console.error('Error loading purchases:', error);
-      toast.error(`Error loading purchases: ${error.message}`);
+      console.error('FileList: Error loading purchases:', error);
+      setError(`Error loading purchases: ${error.message}`);
     });
 
     return () => {
@@ -60,6 +65,7 @@ export default function FileList({ user }) {
 
   const handlePurchase = async (folder) => {
     try {
+      console.log('FileList: Initiating purchase for folder:', folder);
       const price = folder.includes('premium') ? 10 : 5;
       const response = await axios.post('/api/create-order', {
         userId: user.uid,
@@ -76,10 +82,10 @@ export default function FileList({ user }) {
         paymentSessionId,
         returnUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/view?orderId={order_id}`,
       }).then(() => {
-        console.log('Payment initiated for order:', orderId);
+        console.log('FileList: Payment initiated for order:', orderId);
       });
     } catch (error) {
-      console.error('Payment initiation error:', error);
+      console.error('FileList: Payment initiation error:', error);
       toast.error(`Error initiating payment: ${error.message}`);
     }
   };
@@ -87,6 +93,7 @@ export default function FileList({ user }) {
   useEffect(() => {
     const fileList = document.getElementById('fileList');
     const handleRefresh = () => {
+      console.log('FileList: Refresh triggered');
       setLoading(true);
       setTimeout(() => setLoading(false), 500);
     };
@@ -95,12 +102,22 @@ export default function FileList({ user }) {
   }, []);
 
   const handleSearch = (e) => {
+    console.log('FileList: Search query:', e.target.value);
     setSearchQuery(e.target.value);
   };
 
   const filteredFolders = Object.keys(folders).filter((folder) =>
     folder.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (error) {
+    return (
+      <div className="text-center text-red-500 p-4">
+        <h2>Error: {error}</h2>
+        <p>Please try refreshing the page or check your Firebase configuration.</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -169,7 +186,8 @@ export default function FileList({ user }) {
       <input
         type="text"
         id="searchInput"
-        className="hidden"
+        placeholder="Search files..."
+        className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full mt-4"
         onChange={handleSearch}
       />
     </>
