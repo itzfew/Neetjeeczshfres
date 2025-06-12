@@ -1,26 +1,37 @@
-// pages/index.js
 import { useEffect, useState } from 'react';
+import { getAuth } from 'firebase/auth';
+import { getDatabase, ref, onValue } from 'firebase/database';
 import ProductCard from '../components/ProductCard';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Link from 'next/link';
 
 export default function Home() {
-  const [products, setProducts] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const auth = getAuth();
 
   useEffect(() => {
-    fetch('/products.json')
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error loading products:', error);
-        setIsLoading(false);
-      });
+    const db = getDatabase();
+    const coursesRef = ref(db, 'courses');
+    onValue(coursesRef, (snapshot) => {
+      const data = snapshot.val();
+      const courseList = [];
+      for (let folder in data) {
+        courseList.push({
+          id: folder,
+          name: folder,
+          description: `Learn with our premium ${folder} course materials.`,
+          price: folder === 'Pw' ? 5 : 10, // Example pricing
+          rating: 4,
+          image: '/default-book.jpg',
+        });
+      }
+      setCourses(courseList);
+      setIsLoading(false);
+    });
   }, []);
 
   return (
@@ -30,10 +41,17 @@ export default function Home() {
       <main className="flex-grow">
         <div className="hero bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-16">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Discover Your Next Favorite Book</h1>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">Discover Your Next Favorite Course</h1>
             <p className="text-lg md:text-xl max-w-2xl mx-auto">
-              Explore our curated collection of premium study materials and books to excel in your learning journey.
+              Explore our curated collection of premium study materials and courses to excel in your learning journey.
             </p>
+            {auth.currentUser && (
+              <Link href="/my-courses">
+                <span className="mt-4 inline-block px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-gray-100">
+                  My Courses
+                </span>
+              </Link>
+            )}
           </div>
         </div>
         <div className="container mx-auto px-4 py-12">
@@ -45,8 +63,8 @@ export default function Home() {
             <>
               <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Collection</h2>
               <div className="product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                {courses.map((course) => (
+                  <ProductCard key={course.id} course={course} />
                 ))}
               </div>
             </>
